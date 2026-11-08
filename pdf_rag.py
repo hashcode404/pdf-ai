@@ -137,15 +137,27 @@ def process_pdf(file_path):
 # 5. Search relevant PDF chunks
 # -----------------------------
 
-def search_pdf(question):
+def search_pdf(question, file_path):
 
     query_embedding = embedding_model.encode(
         question
     ).tolist()
 
+    # Count chunks belonging to this PDF
+    existing_chunks = collection.get(
+        where={"source": file_path},
+        include=[]
+    )
+
+    total_chunks = len(existing_chunks["ids"])
+
+    if total_chunks == 0:
+        return "", []
+
     results = collection.query(
         query_embeddings=[query_embedding],
-        n_results=4
+        n_results=min(4, total_chunks),
+        where={"source": file_path}
     )
 
     documents = results["documents"]
@@ -155,16 +167,11 @@ def search_pdf(question):
         return "", []
 
     context_parts = []
-
     sources = []
 
     for index, document in enumerate(documents[0]):
 
-        metadata = (
-            metadatas[0][index]
-            if metadatas is not None and metadatas[0]
-            else {}
-        )
+        metadata = metadatas[0][index] if metadatas else {}
 
         page_number = metadata.get("page", "Unknown")
 
@@ -177,24 +184,25 @@ def search_pdf(question):
     return "\n\n".join(context_parts), sources
 
 
+
 # -----------------------------
 # 6. Ask Gemini
 # -----------------------------
 
-def ask_question(question):
+def ask_question(question, file_path):
 
-    context, sources = search_pdf(question)
+    context, sources = search_pdf(question, file_path)
 
     if not context:
-        return "No relevant information found in the PDF."
+        return "No relevant information found in the PDF.", []
 
     prompt = f"""
     You are a helpful PDF assistant.
 
-    Answer the question using only the provided context.
+    Answer using only the provided document context.
 
-    If the answer is not available in the context,
-    say you couldn't find it in the document.
+    If the answer is unavailable, say you couldn't
+    find the information in the document.
 
     Include page references when possible.
 
@@ -210,7 +218,7 @@ def ask_question(question):
         contents=prompt
     )
 
-    return response.text or "No response generated."
+    return response.text or "No response generated.", sources
 
 
 # -----------------------------
@@ -240,6 +248,6 @@ if __name__ == "__main__":
         if not question:
             continue
 
-        answer = ask_question(question)
+        answer = ask_question(question, pdf_path)
 
         print("\nAI:", answer)
