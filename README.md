@@ -98,7 +98,7 @@ Get your API key from [Google AI Studio](https://aistudio.google.com/apikey).
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/pdf-ai-assistant.git
+git clone https://github.com/hashcode404/pdf-ai-assistant.git
 
 cd pdf-ai-assistant
 ```
